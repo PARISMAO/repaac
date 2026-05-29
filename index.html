@@ -197,19 +197,87 @@ textarea{resize:vertical;}
   <div class="page" style="max-width:600px;">
     <div class="card">
       <div class="card-hdr"><div class="card-bar" style="background:var(--prp)"></div><span class="card-title" style="color:var(--prp);">Clé API Anthropic (Claude)</span></div>
+      <!-- Notice clé centralisée (admin) -->
+      <div id="apikey-baked-notice" style="display:none;background:#e8f5e9;border:.5px solid #a5d6a7;border-radius:var(--rad);padding:14px;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:#1b5e20;margin-bottom:6px;">🔒 Clé API configurée par l'administrateur</div>
+        <div style="font-size:12px;color:#2e7d32;line-height:1.7;">
+          La clé API est intégrée automatiquement par votre administrateur LAMS.<br>
+          <strong>Aucune configuration nécessaire</strong> — fonctionne sur tous vos appareils.<br>
+          Contactez votre admin pour toute modification : <strong>admin@lams-consulting.com</strong>
+        </div>
+      </div>
       <div class="api-key-notice">
         <strong>Comment obtenir votre clé API :</strong><br>
         1. Connectez-vous sur <a href="https://console.anthropic.com" target="_blank" style="color:var(--prp)">console.anthropic.com</a><br>
         2. Allez dans <em>API Keys</em> → <em>Create Key</em><br>
         3. Copiez la clé et collez-la ci-dessous<br>
-        <strong>Sécurité :</strong> La clé est stockée localement dans votre navigateur, jamais envoyée à un tiers.
+        <strong>Sécurité :</strong> La clé est stockée localement dans votre navigateur.
       </div>
       <div class="field" style="margin-bottom:14px;">
         <label class="lbl">Clé API Anthropic *</label>
         <input id="s-apikey" type="password" placeholder="sk-ant-api03-…"/>
       </div>
-      <button class="btn-p" onclick="saveApiKey()" style="width:100%;padding:10px;">💾 Enregistrer la clé API</button>
+      <button id="apikey-save-btn" class="btn-p" onclick="saveApiKey()" style="width:100%;padding:10px;">💾 Enregistrer la clé API</button>
       <div id="apikey-status" style="margin-top:10px;font-size:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="s-dashboard" class="screen">
+  <div class="hdr">
+    <div class="hdr-inner">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img id="dash-logo" src="" alt="REPAAC" style="width:32px;height:32px;border-radius:8px;object-fit:cover;"/>
+        <div><div class="logo-title">REPAAC — Dashboard KPI</div><div class="logo-sub" id="dash-username"></div></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="nav-btn-small" onclick="setScreen('ws');goStep(1);">← Espace REPAAC</button>
+        <button class="nav-btn-small" onclick="doLogout()">Déco.</button>
+      </div>
+    </div>
+  </div>
+  <div class="page">
+    <!-- Filtres -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="font-weight:600;font-size:13px;color:var(--prp);">📊 Tableau de bord des candidatures</div>
+        <select id="dash-filter-user" onchange="renderDashboard()" style="padding:5px 10px;border-radius:var(--rad);border:.5px solid var(--brd);font-size:12px;background:var(--bg2);">
+          <option value="">Tous les utilisateurs</option>
+        </select>
+        <select id="dash-filter-status" onchange="renderDashboard()" style="padding:5px 10px;border-radius:var(--rad);border:.5px solid var(--brd);font-size:12px;background:var(--bg2);">
+          <option value="">Tous les statuts</option>
+          <option value="Non envoyée">Non envoyée</option>
+          <option value="Envoyée">Envoyée</option>
+          <option value="En attente">En attente</option>
+          <option value="Acceptée">Acceptée</option>
+          <option value="Refusée">Refusée</option>
+        </select>
+        <button onclick="renderDashboard()" class="btn-s" style="padding:5px 12px;font-size:11px;">🔄 Actualiser</button>
+        <button onclick="exportDashCSV()" class="btn-s" style="padding:5px 12px;font-size:11px;">📥 Exporter CSV</button>
+      </div>
+    </div>
+    <!-- KPI Cards -->
+    <div id="kpi-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;"></div>
+    <!-- Chart bar -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:600;font-size:12px;color:var(--txt2);margin-bottom:10px;">Répartition des candidatures par statut</div>
+      <div id="dash-chart" style="display:flex;gap:8px;align-items:flex-end;height:80px;"></div>
+      <div id="dash-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;"></div>
+    </div>
+    <!-- Table -->
+    <div class="card" style="overflow-x:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:600;font-size:12px;color:var(--txt2);">Détail des candidatures (<span id="dash-count">0</span>)</div>
+        <input type="text" id="dash-search" placeholder="🔍 Rechercher…" oninput="renderDashboard()" style="padding:5px 10px;border-radius:var(--rad);border:.5px solid var(--brd);font-size:12px;width:200px;background:var(--bg2);">
+      </div>
+      <table class="data-table" id="dash-table">
+        <thead><tr>
+          <th>Date</th><th>Utilisateur LAMS</th><th>Client</th><th>Mission / Appel d'offres</th>
+          <th>Lieu</th><th>Budget</th><th>Type</th><th>Statut</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="dash-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -227,6 +295,7 @@ textarea{resize:vertical;}
         <button class="nav-btn" id="nav-2" onclick="goStep(2)"><span class="step-num">2</span>Documents</button>
         <button class="nav-btn" id="nav-3" onclick="goStep(3)"><span class="step-num">3</span>Envoi</button>
         <button class="nav-btn-small" onclick="toggleHist()">📂<span id="hist-count">(0)</span></button>
+        <button class="nav-btn-small" onclick="openDashboard()">📊 Dashboard</button>
         <button class="nav-btn-small" id="btn-admin" onclick="setScreen('admin');renderAdmin();" style="display:none;">⚙️</button>
         <button class="nav-btn-small" onclick="goSettings()">🔑</button>
         <button class="nav-btn-small" onclick="doLogout()">Déco.</button>
@@ -509,14 +578,23 @@ function notify(msg, type='success'){
 // ── Storage helpers ──────────────────────────────────────────────────────
 function getUsers(){try{return JSON.parse(localStorage.getItem('repaac_users')||'{}');}catch{return {};}}
 function saveUsers(u){localStorage.setItem('repaac_users',JSON.stringify(u));}
-function getApiKey(){return localStorage.getItem('repaac_apikey')||'';}
+// Clé API : d'abord la clé intégrée par GitHub Actions (admin), sinon localStorage
+const _BAKED_KEY='__ANTHROPIC_API_KEY__';
+function getApiKey(){
+  // Si la clé est intégrée par GitHub Actions (non placeholder)
+  if(_BAKED_KEY && _BAKED_KEY!=='__ANTHROPIC_API_KEY__' && _BAKED_KEY.startsWith('sk-')){return _BAKED_KEY;}
+  // Sinon clé locale (config manuelle)
+  return localStorage.getItem('repaac_apikey')||'';
+}
+function isKeyBaked(){return _BAKED_KEY && _BAKED_KEY!=='__ANTHROPIC_API_KEY__' && _BAKED_KEY.startsWith('sk-');}
 function fmtM(m,d){return m?Number(m).toLocaleString('fr-FR')+' '+(d||'GNF'):'Sur devis';}
 function td(){return new Date().toLocaleDateString('fr-FR');}
 
 // ── Screen routing ──────────────────────────────────────────────────────
 function setScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('s-'+name).classList.add('active');
+  const el=document.getElementById('s-'+name);
+  if(el)el.classList.add('active');
   state.screen=name;
 }
 function goBack(){
@@ -562,10 +640,23 @@ function goWs(){
   setScreen('ws');goStep(1);renderHistCount();
 }
 function goSettings(){
-  document.getElementById('s-apikey').value=getApiKey();
+  const baked=isKeyBaked();
+  const localKey=localStorage.getItem('repaac_apikey')||'';
   const st=document.getElementById('apikey-status');
-  st.textContent=getApiKey()?'✅ Clé API configurée':'⚠️ Clé API non configurée';
-  st.style.color=getApiKey()?'green':'orange';
+  const inp=document.getElementById('s-apikey');
+  const saveBtn=document.getElementById('apikey-save-btn');
+  const bakedNotice=document.getElementById('apikey-baked-notice');
+  if(baked){
+    if(inp)inp.style.display='none';
+    if(saveBtn)saveBtn.style.display='none';
+    if(bakedNotice)bakedNotice.style.display='block';
+    if(st){st.textContent='✅ Clé API configurée par l\'administrateur (automatique)';st.style.color='green';}
+  }else{
+    if(inp){inp.style.display='block';inp.value=localKey;}
+    if(saveBtn)saveBtn.style.display='block';
+    if(bakedNotice)bakedNotice.style.display='none';
+    if(st){st.textContent=localKey?'✅ Clé API configurée':'⚠️ Clé API non configurée';st.style.color=localKey?'green':'orange';}
+  }
   setScreen('settings');
 }
 function saveApiKey(){
@@ -1097,12 +1188,28 @@ function loadMission(id){
 
 function saveMission(){
   const f=getForm();
-  const m={id:Date.now(),date:td(),nom:f.titre,type:TYPE_LABELS[f.type]||f.type,client:f.ent||f.cab||'—',form:{...f},docs:{...docs}};
-  missions=[m,...missions.slice(0,19)];
+  // Cherche si une mission avec ce titre existe déjà (mise à jour)
+  const existing=missions.find(m=>m.nom===f.titre&&m.userId===state.user?.id);
+  const m={
+    id:existing?.id||Date.now(),
+    date:existing?.date||td(),
+    updatedDate:td(),
+    nom:f.titre,
+    type:TYPE_LABELS[f.type]||f.type,
+    client:f.ent||f.cab||'—',
+    lieu:f.lieu||'—',
+    budget:f.mt?fmtM(f.mt,f.dev):'—',
+    userId:state.user?.id||'',
+    userName:state.user?.name||'',
+    status:existing?.status||'Non envoyée',
+    form:{...f},
+    docs:{...docs}
+  };
+  if(existing){missions=missions.map(x=>x.id===m.id?m:x);}
+  else{missions=[m,...missions.slice(0,49)];}
   if(state.user)localStorage.setItem('repaac_ms_'+state.user.id,JSON.stringify(missions));
-  saveDocs();
-  renderHistCount();
-  notify('✅ Mission sauvegardée dans votre navigateur (accessible via 📂 Historique)');
+  saveDocs();renderHistCount();
+  notify('✅ Mission sauvegardée (Statut: '+m.status+')');
 }
 
 // Télécharge TOUS les documents générés en un seul fichier HTML
@@ -1149,6 +1256,165 @@ function dlAllDocs(){
   const a=document.createElement('a');a.href=dataUri;a.download=fname;a.style.display='none';
   document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),200);
   notify('📥 Fichier HTML téléchargé sur votre PC — ouvrez-le dans Word ou Chrome pour imprimer en PDF');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DASHBOARD KPI
+// ═══════════════════════════════════════════════════════════════════════
+const STATUS_COLORS={
+  'Non envoyée':'#9E9E9E','Envoyée':'#2196F3',
+  'En attente':'#FF9800','Acceptée':'#4CAF50','Refusée':'#F44336'
+};
+const STATUS_LIST=['Non envoyée','Envoyée','En attente','Acceptée','Refusée'];
+
+function getAllMissions(){
+  // Récupère les missions de tous les utilisateurs connus
+  const users=getUsers();
+  let all=[];
+  for(const uid of Object.keys(users)){
+    try{
+      const ms=JSON.parse(localStorage.getItem('repaac_ms_'+uid)||'[]');
+      ms.forEach(m=>{
+        if(!m.userId)m.userId=uid;
+        if(!m.userName)m.userName=users[uid]?.name||uid;
+        if(!m.status)m.status='Non envoyée';
+        all.push(m);
+      });
+    }catch{}
+  }
+  // Déduplique par id
+  const seen=new Set();
+  return all.filter(m=>{if(seen.has(m.id))return false;seen.add(m.id);return true;})
+    .sort((a,b)=>new Date(b.updatedDate||b.date)-new Date(a.updatedDate||a.date));
+}
+
+function openDashboard(){
+  // Sync logo
+  const logos=document.querySelectorAll('img[alt="REPAAC"]');
+  logos.forEach(img=>{if(img.id==='dash-logo'){const ref=document.querySelector('.hdr img[alt="REPAAC"]');if(ref)img.src=ref.src;}});
+  document.getElementById('dash-username').textContent=state.user?.name||'';
+  // Populate user filter (admin sees all, user sees only self)
+  const users=getUsers();const sel=document.getElementById('dash-filter-user');
+  sel.innerHTML='<option value="">Tous les utilisateurs</option>';
+  if(state.user?.role==='admin'){
+    Object.entries(users).forEach(([id,u])=>{
+      const opt=document.createElement('option');opt.value=id;opt.textContent=u.name||id;sel.appendChild(opt);
+    });
+  }else{
+    const opt=document.createElement('option');opt.value=state.user?.id;opt.textContent=state.user?.name;
+    sel.appendChild(opt);sel.value=state.user?.id;sel.disabled=true;
+  }
+  setScreen('dashboard');renderDashboard();
+}
+
+function renderDashboard(){
+  const filterUser=document.getElementById('dash-filter-user')?.value||'';
+  const filterStatus=document.getElementById('dash-filter-status')?.value||'';
+  const search=(document.getElementById('dash-search')?.value||'').toLowerCase();
+  let all=getAllMissions();
+  // Non-admin: only own missions
+  if(state.user?.role!=='admin')all=all.filter(m=>m.userId===state.user?.id);
+  if(filterUser)all=all.filter(m=>m.userId===filterUser);
+  if(filterStatus)all=all.filter(m=>(m.status||'Non envoyée')===filterStatus);
+  if(search)all=all.filter(m=>[m.nom,m.client,m.lieu,m.userName].join(' ').toLowerCase().includes(search));
+
+  // KPI counts
+  const total=all.length;
+  const counts={};STATUS_LIST.forEach(s=>counts[s]=0);
+  all.forEach(m=>counts[m.status||'Non envoyée']=(counts[m.status||'Non envoyée']||0)+1);
+  const sent=counts['Envoyée']+(counts['En attente']||0)+(counts['Acceptée']||0)+(counts['Refusée']||0);
+  const tauxAcc=sent>0?Math.round((counts['Acceptée']/sent)*100):0;
+
+  // KPI Cards
+  const kpis=[
+    {label:'Total candidatures',val:total,color:STATUS_COLORS['Envoyée'],icon:'📋'},
+    {label:'Envoyées',val:counts['Envoyée'],color:'#2196F3',icon:'📤'},
+    {label:'En attente',val:counts['En attente'],color:'#FF9800',icon:'⏳'},
+    {label:'Acceptées',val:counts['Acceptée'],color:'#4CAF50',icon:'✅'},
+    {label:'Refusées',val:counts['Refusée'],color:'#F44336',icon:'❌'},
+    {label:'Non envoyées',val:counts['Non envoyée'],color:'#9E9E9E',icon:'📝'},
+    {label:'Taux d\'acceptation',val:tauxAcc+'%',color:'#7B2D8B',icon:'🎯'},
+  ];
+  document.getElementById('kpi-cards').innerHTML=kpis.map(k=>`
+    <div class="card" style="text-align:center;padding:14px 10px;border-top:3px solid ${k.color};">
+      <div style="font-size:22px;margin-bottom:4px;">${k.icon}</div>
+      <div style="font-size:22px;font-weight:800;color:${k.color};">${k.val}</div>
+      <div style="font-size:10px;color:var(--txt2);margin-top:3px;">${k.label}</div>
+    </div>`).join('');
+
+  // Bar chart
+  const maxVal=Math.max(...STATUS_LIST.map(s=>counts[s]),1);
+  document.getElementById('dash-chart').innerHTML=STATUS_LIST.map(s=>`
+    <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
+      <div style="font-size:11px;font-weight:700;color:${STATUS_COLORS[s]};">${counts[s]}</div>
+      <div style="width:100%;background:${STATUS_COLORS[s]};border-radius:4px 4px 0 0;height:${Math.max(counts[s]/maxVal*60,counts[s]>0?6:0)}px;transition:.3s;"></div>
+    </div>`).join('');
+  document.getElementById('dash-legend').innerHTML=STATUS_LIST.map(s=>`
+    <div style="display:flex;align-items:center;gap:4px;">
+      <div style="width:10px;height:10px;border-radius:2px;background:${STATUS_COLORS[s]};flex-shrink:0;"></div>
+      <span>${s} (${counts[s]})</span>
+    </div>`).join('');
+
+  // Table
+  document.getElementById('dash-count').textContent=all.length;
+  document.getElementById('dash-tbody').innerHTML=all.length===0
+    ?'<tr><td colspan="9" style="text-align:center;color:var(--txt2);padding:20px;">Aucune candidature trouvée</td></tr>'
+    :all.map(m=>`<tr>
+      <td style="font-size:11px;white-space:nowrap;">${m.date||'—'}</td>
+      <td style="font-size:11px;">${m.userName||m.userId||'—'}</td>
+      <td style="font-size:11px;font-weight:500;">${m.client||'—'}</td>
+      <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.nom||'—'}">${m.nom||'—'}</td>
+      <td style="font-size:11px;">${m.lieu||'—'}</td>
+      <td style="font-size:11px;white-space:nowrap;">${m.budget||'—'}</td>
+      <td style="font-size:10px;"><span class="tag">${m.type||'—'}</span></td>
+      <td>
+        <select onchange="updateMissionStatus('${m.id}','${m.userId}',this.value)" style="font-size:11px;padding:3px 6px;border-radius:var(--rad);border:.5px solid var(--brd);background:${STATUS_COLORS[m.status||'Non envoyée']}22;color:${STATUS_COLORS[m.status||'Non envoyée']};font-weight:600;cursor:pointer;">
+          ${STATUS_LIST.map(s=>`<option value="${s}" ${(m.status||'Non envoyée')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td style="white-space:nowrap;">
+        <button onclick="loadMissionFromDash('${m.id}','${m.userId}')" class="btn-s" style="padding:3px 8px;font-size:10px;">✏️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function updateMissionStatus(id,userId,newStatus){
+  try{
+    const ms=JSON.parse(localStorage.getItem('repaac_ms_'+userId)||'[]');
+    const idx=ms.findIndex(m=>String(m.id)===String(id));
+    if(idx>=0){ms[idx].status=newStatus;ms[idx].updatedDate=td();localStorage.setItem('repaac_ms_'+userId,JSON.stringify(ms));}
+    // Mise à jour local si c'est l'utilisateur courant
+    if(userId===state.user?.id)missions=ms;
+    notify('Statut mis à jour : '+newStatus);
+    setTimeout(renderDashboard,300);
+  }catch(e){notify('Erreur mise à jour','error');}
+}
+
+function loadMissionFromDash(id,userId){
+  try{
+    const ms=JSON.parse(localStorage.getItem('repaac_ms_'+userId)||'[]');
+    const m=ms.find(x=>String(x.id)===String(id));
+    if(!m){notify('Mission introuvable','error');return;}
+    loadFormData(m.form||{});docs=m.docs||{com:'',tech:'',email:''};
+    setSenderEmail(m.form?.exp||'');
+    if(userId===state.user?.id)missions=ms;
+    setScreen('ws');goStep(2);notify(`"${m.nom}" chargé`);
+  }catch(e){notify('Erreur chargement','error');}
+}
+
+function setSenderEmail(v){const el=document.getElementById('sender-email');if(el)el.value=v;}
+
+function exportDashCSV(){
+  const all=getAllMissions();
+  if(!all.length){notify('Aucune donnée à exporter','error');return;}
+  const header='Date,Utilisateur,Client,Mission,Lieu,Budget,Type,Statut\n';
+  const rows=all.map(m=>[m.date||'',m.userName||m.userId||'',m.client||'','"'+(m.nom||'').replace(/"/g,"'")+'"',m.lieu||'',m.budget||'',m.type||'',m.status||'Non envoyée'].join(',')).join('\n');
+  const csv='\uFEFF'+header+rows;
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='REPAAC_Candidatures_'+td().replace(/\//g,'-')+'.csv';
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);document.body.removeChild(a);},500);
+  notify('📥 Export CSV téléchargé');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
