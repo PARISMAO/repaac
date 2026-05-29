@@ -23,7 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+        - name: Inject secrets
+        run: |
+          sed -i 's/__ANTHROPIC_API_KEY__/${{ secrets.ANTHROPIC_API_KEY }}/g' index.html
+          sed -i 's/__REPAAC_USERS__/${{ secrets.REPAAC_USERS }}/g' index.html
       - name: Inject secrets (API Key + Users)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
