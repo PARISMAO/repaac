@@ -30,19 +30,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
         run: |
-          python3 - << 'PYEOF'
-          import os
+          python3 -c "
+          import os, sys
           with open('index.html', 'r', encoding='utf-8') as f:
-              content = f.read()
-          api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-          users = os.environ.get('REPAAC_USERS', '')
-          if api_key and api_key.startswith('sk-'):
-              content = content.replace('__ANTHROPIC_API_KEY__', api_key)
-          if users and users != '__REPAAC_USERS__':
-              content = content.replace('__REPAAC_USERS__', users)
+              c = f.read()
+          k = os.environ.get('ANTHROPIC_API_KEY', '')
+          u = os.environ.get('REPAAC_USERS', '')
+          if k and k.startswith('sk-'):
+              c = c.replace('__ANTHROPIC_API_KEY__', k)
+          if u and u != '__REPAAC_USERS__':
+              c = c.replace('__REPAAC_USERS__', u)
           with open('index.html', 'w', encoding='utf-8') as f:
-              f.write(content)
-PYEOF
+              f.write(c)
+          "
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
