@@ -19,36 +19,13 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-- name: Inject secrets
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
-  run: |
-    python3 - << 'EOF'
-    import os
 
-    with open("index.html","r",encoding="utf-8") as f:
-        html = f.read()
-
-    html = html.replace(
-        "__ANTHROPIC_API_KEY__",
-        os.environ.get("ANTHROPIC_API_KEY","")
-    )
-
-    html = html.replace(
-        "__REPAAC_USERS__",
-        os.environ.get("REPAAC_USERS","")
-    )
-
-    with open("index.html","w",encoding="utf-8") as f:
-        f.write(html)
-
-    print("Secrets injectés")
-    EOF
       - name: Inject secrets (API Key + Users)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -61,19 +38,19 @@ jobs:
               content = f.read()
 
           api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-          users   = os.environ.get('REPAAC_USERS', '')
+          users = os.environ.get('REPAAC_USERS', '')
 
           if api_key and api_key.startswith('sk-'):
               content = content.replace('__ANTHROPIC_API_KEY__', api_key)
-              print(f'✅ Clé API injectée')
+              print('✅ Clé API injectée')
           else:
-              print('⚠️  ANTHROPIC_API_KEY manquante ou invalide')
+              print('⚠️ ANTHROPIC_API_KEY manquante ou invalide')
 
           if users and users != '__REPAAC_USERS__':
               content = content.replace('__REPAAC_USERS__', users)
               print(f'✅ Comptes utilisateurs injectés ({len(users)} caractères)')
           else:
-              print('⚠️  REPAAC_USERS manquant')
+              print('⚠️ REPAAC_USERS manquant')
 
           with open('index.html', 'w', encoding='utf-8') as f:
               f.write(content)
