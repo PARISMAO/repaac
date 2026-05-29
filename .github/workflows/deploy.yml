@@ -24,26 +24,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Inject secrets (API Key + Users)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
         run: |
           python3 -c "
-          import os, sys
+          import os, base64
           with open('index.html', 'r', encoding='utf-8') as f:
               c = f.read()
           k = os.environ.get('ANTHROPIC_API_KEY', '')
           u = os.environ.get('REPAAC_USERS', '')
           if k and k.startswith('sk-'):
-              c = c.replace('__ANTHROPIC_API_KEY__', k)
+              k64 = base64.b64encode(k.encode()).decode()
+              c = c.replace('__ANTHROPIC_API_KEY__', k64)
           if u and u != '__REPAAC_USERS__':
-              c = c.replace('__REPAAC_USERS__', u)
+              u64 = base64.b64encode(u.encode()).decode()
+              c = c.replace('__REPAAC_USERS__', u64)
           with open('index.html', 'w', encoding='utf-8') as f:
               f.write(c)
           "
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
