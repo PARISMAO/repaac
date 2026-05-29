@@ -593,9 +593,9 @@ function notify(msg, type='success'){
 function getUsers(){try{return JSON.parse(localStorage.getItem('repaac_users')||'{}');}catch{return {};}}
 function saveUsers(u){localStorage.setItem('repaac_users',JSON.stringify(u));}
 // ── Utilisateurs et API Key centralisés via GitHub Secrets ───────────────
-const _BAKED_USERS='__REPAAC_USERS__';
+const _BAKED_USERS=`__REPAAC_USERS__`;
 // Clé API : d'abord la clé intégrée par GitHub Actions (admin), sinon localStorage
-const _BAKED_KEY='__ANTHROPIC_API_KEY__';
+const _BAKED_KEY=`__ANTHROPIC_API_KEY__`;
 function getApiKey(){
   // Si la clé est intégrée par GitHub Actions (non placeholder)
   if(_BAKED_KEY && _BAKED_KEY!=='__ANTHROPIC_API_KEY__' && _BAKED_KEY.startsWith('sk-')){return _BAKED_KEY;}
