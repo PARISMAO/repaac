@@ -30,7 +30,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
         run: |
-          python3 inject.py
+          python3 - << 'PYEOF'
+          import os
+          with open('index.html', 'r', encoding='utf-8') as f:
+              content = f.read()
+          api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+          users = os.environ.get('REPAAC_USERS', '')
+          if api_key and api_key.startswith('sk-'):
+              content = content.replace('__ANTHROPIC_API_KEY__', api_key)
+          if users and users != '__REPAAC_USERS__':
+              content = content.replace('__REPAAC_USERS__', users)
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(content)
+PYEOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
