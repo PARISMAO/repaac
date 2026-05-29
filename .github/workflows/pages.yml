@@ -23,12 +23,47 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Inject secrets (API Key + Users)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
+        run: |
+          python3 - << 'PYEOF'
+          import os
+
+          with open('index.html', 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+          users   = os.environ.get('REPAAC_USERS', '')
+
+          if api_key and api_key.startswith('sk-'):
+              content = content.replace('__ANTHROPIC_API_KEY__', api_key)
+              print(f'✅ Clé API injectée')
+          else:
+              print('⚠️  ANTHROPIC_API_KEY manquante ou invalide')
+
+          if users and users != '__REPAAC_USERS__':
+              content = content.replace('__REPAAC_USERS__', users)
+              print(f'✅ Comptes utilisateurs injectés ({len(users)} caractères)')
+          else:
+              print('⚠️  REPAAC_USERS manquant')
+
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(content)
+
+          print('✅ index.html mis à jour')
+          PYEOF
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
