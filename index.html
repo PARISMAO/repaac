@@ -616,7 +616,7 @@ async function getUsers(){
     if(!Array.isArray(rows)) return {};
     const obj = {};
     rows.forEach(u => {
-      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.id };
+      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.role||'user', blocked: u.blocked||false, sbId: u.id };
     });
     return obj;
   }catch(e){ return {}; }
@@ -629,7 +629,7 @@ async function saveUsers(users){
 async function sbCreateUser(id, name, email, pwd, role){
   const res = await sbFetch('repaac_users', {
     method:'POST',
-    body: JSON.stringify({ name: id, email, pwd: H(pwd), rôle: role })
+    body: JSON.stringify({ name: id, email, pwd: H(pwd), role: role })
   });
   return res;
 }
@@ -648,7 +648,8 @@ async function sbDeleteUser(sbId){
 }
 
 // ── Utilisateurs et API Key centralisés via GitHub Secrets ───────────────
-const _BAKED_KEY=atob('__ANTHROPIC_API_KEY__');
+let _BAKED_KEY='';
+try{const _raw='__ANTHROPIC_API_KEY__';if(_raw&&!_raw.includes('ANTHROPIC_API_KEY'))_BAKED_KEY=atob(_raw);}catch(e){}
 function getApiKey(){
   if(_BAKED_KEY && !_BAKED_KEY.includes('ANTHROPIC_API_KEY') && _BAKED_KEY.startsWith('sk-')){return _BAKED_KEY;}
   return localStorage.getItem('repaac_apikey')||'';
@@ -679,7 +680,7 @@ async function bootstrap(){
     const res = await sbFetch('repaac_users?name=eq.admin&select=id');
     const rows = await res.json();
     if(!Array.isArray(rows)||rows.length===0){
-      await sbFetch('repaac_users',{method:'POST',body:JSON.stringify({name:'admin',email:'admin@lams-consulting.com',pwd:H('Admin2024!'),rôle:'admin',blocked:false})});
+      await sbFetch('repaac_users',{method:'POST',body:JSON.stringify({name:'admin',email:'admin@lams-consulting.com',pwd:H('Admin2024!'),role:'admin',blocked:false})});
     }
   }catch(e){console.warn('Bootstrap admin:',e);}
 }
@@ -696,14 +697,15 @@ async function doLogin(){
     const u=rows[0];
     if(u.blocked){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
     if(u.pwd!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
-    state.user={id:usr,name:u.name,email:u.email,role:u.rôle||'user',sbId:u.id};
+    state.user={id:usr,name:u.name,email:u.email,role:u.role||'user',sbId:u.id};
     // Load user data
     try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
     try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
     // Load saved form
     try{const sf=JSON.parse(localStorage.getItem('repaac_form_'+usr)||'null');if(sf)loadFormData(sf);}catch{}
-  // Tous les utilisateurs vont au workspace — admin accède à l'admin via ⚙️
-  goWs();
+    // Tous les utilisateurs vont au workspace — admin accède à l'admin via ⚙️
+    goWs();
+  }catch(e){err.textContent='Erreur connexion: '+e.message;err.style.display='block';}
 }
 
 function doLogout(){state.user=null;setScreen('login');document.getElementById('l-pass').value='';document.getElementById('l-user').value='';}
@@ -811,7 +813,7 @@ async function saveUser(){
     if(editingUserId){
       const users=await getUsers();
       const u=users[editingUserId];
-      const fields={name:id,email,rôle:role};
+      const fields={name:id,email,role:role};
       if(pass)fields.pwd=H(pass);
       await sbUpdateUser(u.sbId,fields);
     }else{
