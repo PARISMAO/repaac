@@ -616,7 +616,7 @@ async function getUsers(){
     if(!Array.isArray(rows)) return {};
     const obj = {};
     rows.forEach(u => {
-      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.role||'user', blocked: u.blocked||false, sbId: u.id };
+      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.id };
     });
     return obj;
   }catch(e){ return {}; }
@@ -629,7 +629,7 @@ async function saveUsers(users){
 async function sbCreateUser(id, name, email, pwd, role){
   const res = await sbFetch('repaac_users', {
     method:'POST',
-    body: JSON.stringify({ name: id, email, pwd: H(pwd), role: role })
+    body: JSON.stringify({ name: id, email, pwd: H(pwd), rôle: role })
   });
   return res;
 }
@@ -680,7 +680,7 @@ async function bootstrap(){
     const res = await sbFetch('repaac_users?name=eq.admin&select=id');
     const rows = await res.json();
     if(!Array.isArray(rows)||rows.length===0){
-      await sbFetch('repaac_users',{method:'POST',body:JSON.stringify({name:'admin',email:'admin@lams-consulting.com',pwd:H('Admin2024!'),role:'admin',blocked:false})});
+      await sbFetch('repaac_users',{method:'POST',body:JSON.stringify({name:'admin',email:'admin@lams-consulting.com',pwd:H('Admin2024!'),rôle:'admin',blocked:false})});
     }
   }catch(e){console.warn('Bootstrap admin:',e);}
 }
@@ -697,7 +697,7 @@ async function doLogin(){
     const u=rows[0];
     if(u.blocked){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
     if(u.pwd!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
-    state.user={id:usr,name:u.name,email:u.email,role:u.role||'user',sbId:u.id};
+    state.user={id:usr,name:u.name,email:u.email,role:u.rôle||'user',sbId:u.id};
     // Load user data
     try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
     try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
@@ -798,7 +798,7 @@ async function editUser(id){
   document.getElementById('a-email').value=u.email||'';
   document.getElementById('a-pass').value='';
   document.getElementById('a-pass-lbl').textContent='Nouveau MDP (laisser vide = inchangé)';
-  document.getElementById('a-role').value=u.role||'user';
+  document.getElementById('a-role').value=u.rôle||'user';
 }
 
 async function saveUser(){
@@ -813,7 +813,7 @@ async function saveUser(){
     if(editingUserId){
       const users=await getUsers();
       const u=users[editingUserId];
-      const fields={name:id,email,role:role};
+      const fields={name:id,email,rôle:role};
       if(pass)fields.pwd=H(pass);
       await sbUpdateUser(u.sbId,fields);
     }else{
