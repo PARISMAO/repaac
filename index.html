@@ -695,7 +695,7 @@ async function doLogin(){
     const rows = await res.json();
     if(!Array.isArray(rows)||rows.length===0){err.textContent='Identifiant introuvable';err.style.display='block';return;}
     const u=rows[0];
-    if(u.blocked){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
+    if(u.blocked===true||u.blocked==='true'){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
     if(u.pwd!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
     state.user={id:usr,name:u.name,email:u.email,role:u.rôle||'user',sbId:u.id};
     // Load user data
@@ -833,12 +833,17 @@ async function delUser(id){
 }
 
 async function toggleBlock(id,currentBlocked){
+  // currentBlocked peut être string "true"/"false" depuis onclick
+  const isBlocked = currentBlocked===true||currentBlocked==='true';
   const users=await getUsers();
   const u=users[id];
-  if(!u)return;
-  await sbUpdateUser(u.sbId,{blocked:!currentBlocked});
-  notify(currentBlocked?'Compte débloqué ✓':'Compte bloqué ✓');
-  renderAdmin();
+  if(!u){notify('Utilisateur introuvable','error');return;}
+  const newVal = !isBlocked;
+  const res = await sbUpdateUser(u.sbId,{blocked:newVal});
+  const txt = await res.text();
+  console.log('toggleBlock result:', res.status, txt);
+  notify(isBlocked?'Compte débloqué ✓':'Compte bloqué ✓');
+  await renderAdmin();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
