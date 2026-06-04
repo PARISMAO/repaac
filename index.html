@@ -616,7 +616,7 @@ async function getUsers(){
     if(!Array.isArray(rows)) return {};
     const obj = {};
     rows.forEach(u => {
-      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.id };
+      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.name };
     });
     return obj;
   }catch(e){ return {}; }
@@ -634,16 +634,16 @@ async function sbCreateUser(id, name, email, pwd, role){
   return res;
 }
 
-async function sbUpdateUser(sbId, fields){
-  const res = await sbFetch('repaac_users?id=eq.'+sbId, {
+async function sbUpdateUser(userName, fields){
+  const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(userName), {
     method:'PATCH',
     body: JSON.stringify(fields)
   });
   return res;
 }
 
-async function sbDeleteUser(sbId){
-  const res = await sbFetch('repaac_users?id=eq.'+sbId, { method:'DELETE' });
+async function sbDeleteUser(userName){
+  const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(userName), { method:'DELETE' });
   return res;
 }
 
@@ -833,15 +833,10 @@ async function delUser(id){
 }
 
 async function toggleBlock(id,currentBlocked){
-  // currentBlocked peut être string "true"/"false" depuis onclick
   const isBlocked = currentBlocked===true||currentBlocked==='true';
-  const users=await getUsers();
-  const u=users[id];
-  if(!u){notify('Utilisateur introuvable','error');return;}
   const newVal = !isBlocked;
-  const res = await sbUpdateUser(u.sbId,{blocked:newVal});
-  const txt = await res.text();
-  console.log('toggleBlock result:', res.status, txt);
+  const res = await sbUpdateUser(id,{blocked:newVal});
+  console.log('toggleBlock status:', res.status);
   notify(isBlocked?'Compte débloqué ✓':'Compte bloqué ✓');
   await renderAdmin();
 }
