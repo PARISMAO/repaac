@@ -589,11 +589,65 @@ function notify(msg, type='success'){
   clearTimeout(t._timer);t._timer=setTimeout(()=>{t.style.display='none';},4000);
 }
 
-// ── Storage helpers ──────────────────────────────────────────────────────
-function getUsers(){try{return JSON.parse(localStorage.getItem('repaac_users')||'{}');}catch{return {};}}
-function saveUsers(u){localStorage.setItem('repaac_users',JSON.stringify(u));}
+// ── Supabase Config ──────────────────────────────────────────────────────
+const SB_URL = 'https://ywzjfxrxsqrgznnnnkzx.supabase.co';
+const SB_KEY = 'sb_publishable_BIGcaZXEHScuIYpjCiXkrw_7I3W04Nc';
+
+async function sbFetch(path, opts={}){
+  const res = await fetch(SB_URL+'/rest/v1/'+path, {
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation',...(opts.headers||{})},
+    ...opts
+  });
+  return res;
+}
+
+// ── Ping automatique Supabase (évite la mise en veille) ──────────────────
+async function pingSupabase(){
+  try{ await sbFetch('repaac_users?select=name&limit=1'); }catch(e){}
+}
+pingSupabase();
+setInterval(pingSupabase, 4 * 60 * 1000); // toutes les 4 minutes
+
+// ── Storage helpers (Supabase) ───────────────────────────────────────────
+async function getUsers(){
+  try{
+    const res = await sbFetch('repaac_users?select=*');
+    const rows = await res.json();
+    if(!Array.isArray(rows)) return {};
+    const obj = {};
+    rows.forEach(u => {
+      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.id };
+    });
+    return obj;
+  }catch(e){ return {}; }
+}
+
+async function saveUsers(users){
+  // Non utilisé directement — on passe par saveUser/delUser Supabase
+}
+
+async function sbCreateUser(id, name, email, pwd, role){
+  const res = await sbFetch('repaac_users', {
+    method:'POST',
+    body: JSON.stringify({ name: id, email, pwd: H(pwd), rôle: role })
+  });
+  return res;
+}
+
+async function sbUpdateUser(sbId, fields){
+  const res = await sbFetch('repaac_users?id=eq.'+sbId, {
+    method:'PATCH',
+    body: JSON.stringify(fields)
+  });
+  return res;
+}
+
+async function sbDeleteUser(sbId){
+  const res = await sbFetch('repaac_users?id=eq.'+sbId, { method:'DELETE' });
+  return res;
+}
+
 // ── Utilisateurs et API Key centralisés via GitHub Secrets ───────────────
-const _BAKED_USERS=atob('__REPAAC_USERS__');
 const _BAKED_KEY=atob('__ANTHROPIC_API_KEY__');
 function getApiKey(){
   if(_BAKED_KEY && !_BAKED_KEY.includes('ANTHROPIC_API_KEY') && _BAKED_KEY.startsWith('sk-')){return _BAKED_KEY;}
@@ -618,42 +672,36 @@ function goBack(){
 // ═══════════════════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════════════════
-function bootstrap(){
-  // Charge d'abord les utilisateurs baked (GitHub Secret REPAAC_USERS)
-  if(_BAKED_USERS && _BAKED_USERS!=='__REPAAC_USERS__'){
-    try{
-      const baked=JSON.parse(atob(_BAKED_USERS));
-      // Fusionne avec localStorage en priorisant les données baked
-      const local=getUsers();
-      const merged={...local,...baked};
-      // S'assure que admin existe toujours
-      if(!merged.admin)merged.admin={password:H('Admin2024!'),role:'admin',name:'Administrateur LAMS',email:'admin@lams-consulting.com'};
-      saveUsers(merged);
-    }catch(e){console.warn('Baked users parse error:',e);}
-  }
-  let users=getUsers();
-  if(!users.admin){
-    users={admin:{password:H('Admin2024!'),role:'admin',name:'Administrateur LAMS',email:'admin@lams-consulting.com'}};
-    saveUsers(users);
-  }
+async function bootstrap(){
   setScreen('login');
   document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  try{
+    const res = await sbFetch('repaac_users?name=eq.admin&select=id');
+    const rows = await res.json();
+    if(!Array.isArray(rows)||rows.length===0){
+      await sbFetch('repaac_users',{method:'POST',body:JSON.stringify({name:'admin',email:'admin@lams-consulting.com',pwd:H('Admin2024!'),rôle:'admin',blocked:false})});
+    }
+  }catch(e){console.warn('Bootstrap admin:',e);}
 }
 
-function doLogin(){
+async function doLogin(){
   const usr=document.getElementById('l-user').value.trim();
   const pass=document.getElementById('l-pass').value;
-  const users=getUsers();const u=users[usr];
   const err=document.getElementById('login-err');
-  if(!u){err.textContent='Identifiant introuvable';err.style.display='block';return;}
-  if(u.password!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
   err.style.display='none';
-  state.user={id:usr,...u};
-  // Load user data
-  try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
-  try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
-  // Load saved form
-  try{const sf=JSON.parse(localStorage.getItem('repaac_form_'+usr)||'null');if(sf)loadFormData(sf);}catch{}
+  try{
+    const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(usr)+'&select=*');
+    const rows = await res.json();
+    if(!Array.isArray(rows)||rows.length===0){err.textContent='Identifiant introuvable';err.style.display='block';return;}
+    const u=rows[0];
+    if(u.blocked){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
+    if(u.pwd!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
+    state.user={id:usr,name:u.name,email:u.email,role:u.rôle||'user',sbId:u.id};
+    // Load user data
+    try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
+    try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
+    // Load saved form
+    try{const sf=JSON.parse(localStorage.getItem('repaac_form_'+usr)||'null');if(sf)loadFormData(sf);}catch{}
   // Tous les utilisateurs vont au workspace — admin accède à l'admin via ⚙️
   goWs();
 }
@@ -700,14 +748,16 @@ function saveApiKey(){
 // ═══════════════════════════════════════════════════════════════════════
 // ADMIN
 // ═══════════════════════════════════════════════════════════════════════
-function renderAdmin(){
-  const users=getUsers();
-  let html='<table class="data-table"><thead><tr><th>Login</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Actions</th></tr></thead><tbody>';
+async function renderAdmin(){
+  const users=await getUsers();
+  let html='<table class="data-table"><thead><tr><th>Login</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Bloqué</th><th>Actions</th></tr></thead><tbody>';
   for(const [id,u] of Object.entries(users)){
     html+=`<tr><td style="font-weight:500">${id}</td><td>${u.name}</td><td style="color:var(--txt2);font-size:11px">${u.email||'—'}</td>
     <td><span class="badge ${u.role==='admin'?'admin':'wait'}">${u.role==='admin'?'Admin':'Util.'}</span></td>
+    <td><span style="color:${u.blocked?'#F44336':'#4CAF50'};font-size:12px;">${u.blocked?'🔒 Bloqué':'✅ Actif'}</span></td>
     <td style="display:flex;gap:5px;padding:7px 10px;">
       <button class="btn-s" onclick="editUser('${id}')" style="padding:3px 8px;font-size:11px;">✏️</button>
+      <button class="btn-s" onclick="toggleBlock('${id}',${u.blocked})" style="padding:3px 8px;font-size:11px;background:${u.blocked?'#4CAF50':'#FF9800'};color:#fff;border:none;border-radius:var(--rad);cursor:pointer;">${u.blocked?'🔓':'🔒'}</button>
       ${id!=='admin'?`<button class="btn-danger" onclick="delUser('${id}')" style="padding:3px 8px;">🗑</button>`:''}
     </td></tr>`;
   }
@@ -718,11 +768,11 @@ function renderAdmin(){
   document.getElementById('admin-tab-new').className='btn-s';
 }
 
-function adminTab(t){
+async function adminTab(t){
   if(t==='list'){
     document.getElementById('admin-list-panel').style.display='block';
     document.getElementById('admin-form-panel').style.display='none';
-    renderAdmin();
+    await renderAdmin();
   }else{
     document.getElementById('admin-list-panel').style.display='none';
     document.getElementById('admin-form-panel').style.display='block';
@@ -736,8 +786,8 @@ function adminTab(t){
   }
 }
 
-function editUser(id){
-  const users=getUsers();const u=users[id];
+async function editUser(id){
+  const users=await getUsers();const u=users[id];
   editingUserId=id;
   adminTab('new');
   document.getElementById('admin-form-title').textContent='Modifier : '+id;
@@ -749,21 +799,44 @@ function editUser(id){
   document.getElementById('a-role').value=u.role||'user';
 }
 
-function saveUser(){
+async function saveUser(){
   const id=editingUserId||(document.getElementById('a-uid').value.trim().toLowerCase().replace(/\s+/g,'_'));
   const name=document.getElementById('a-name').value.trim();
   if(!id||!name){notify('Identifiant et nom requis','error');return;}
   const pass=document.getElementById('a-pass').value.trim();
   if(!editingUserId&&!pass){notify('Mot de passe requis pour un nouveau compte','error');return;}
-  const users=getUsers();
-  users[id]={...users[id],name,email:document.getElementById('a-email').value.trim()||'',role:document.getElementById('a-role').value};
-  if(pass)users[id].password=H(pass);
-  saveUsers(users);adminTab('list');notify(editingUserId?'Compte modifié ✓':'Compte créé ✓');
+  const email=document.getElementById('a-email').value.trim()||'';
+  const role=document.getElementById('a-role').value;
+  try{
+    if(editingUserId){
+      const users=await getUsers();
+      const u=users[editingUserId];
+      const fields={name:id,email,rôle:role};
+      if(pass)fields.pwd=H(pass);
+      await sbUpdateUser(u.sbId,fields);
+    }else{
+      await sbCreateUser(id,name,email,pass,role);
+    }
+    adminTab('list');notify(editingUserId?'Compte modifié ✓':'Compte créé ✓');
+  }catch(e){notify('Erreur: '+e.message,'error');}
 }
 
-function delUser(id){
+async function delUser(id){
   if(!confirm('Supprimer "'+id+'" ?'))return;
-  const u=getUsers();delete u[id];saveUsers(u);notify('Supprimé');renderAdmin();
+  const users=await getUsers();
+  const u=users[id];
+  if(!u){notify('Utilisateur introuvable','error');return;}
+  await sbDeleteUser(u.sbId);
+  notify('Supprimé');renderAdmin();
+}
+
+async function toggleBlock(id,currentBlocked){
+  const users=await getUsers();
+  const u=users[id];
+  if(!u)return;
+  await sbUpdateUser(u.sbId,{blocked:!currentBlocked});
+  notify(currentBlocked?'Compte débloqué ✓':'Compte bloqué ✓');
+  renderAdmin();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1296,9 +1369,9 @@ const STATUS_COLORS={
 };
 const STATUS_LIST=['Non envoyée','Envoyée','En attente','Acceptée','Refusée'];
 
-function getAllMissions(){
+async function getAllMissions(){
   // Récupère les missions de tous les utilisateurs connus
-  const users=getUsers();
+  const users=await getUsers();
   let all=[];
   for(const uid of Object.keys(users)){
     try{
@@ -1317,13 +1390,13 @@ function getAllMissions(){
     .sort((a,b)=>new Date(b.updatedDate||b.date)-new Date(a.updatedDate||a.date));
 }
 
-function openDashboard(){
+async function openDashboard(){
   // Sync logo
   const logos=document.querySelectorAll('img[alt="REPAAC"]');
   logos.forEach(img=>{if(img.id==='dash-logo'){const ref=document.querySelector('.hdr img[alt="REPAAC"]');if(ref)img.src=ref.src;}});
   document.getElementById('dash-username').textContent=state.user?.name||'';
   // Populate user filter (admin sees all, user sees only self)
-  const users=getUsers();const sel=document.getElementById('dash-filter-user');
+  const users=await getUsers();const sel=document.getElementById('dash-filter-user');
   sel.innerHTML='<option value="">Tous les utilisateurs</option>';
   if(state.user?.role==='admin'){
     Object.entries(users).forEach(([id,u])=>{
@@ -1336,11 +1409,11 @@ function openDashboard(){
   setScreen('dashboard');renderDashboard();
 }
 
-function renderDashboard(){
+async function renderDashboard(){
   const filterUser=document.getElementById('dash-filter-user')?.value||'';
   const filterStatus=document.getElementById('dash-filter-status')?.value||'';
   const search=(document.getElementById('dash-search')?.value||'').toLowerCase();
-  let all=getAllMissions();
+  let all=await getAllMissions();
   // Non-admin: only own missions
   if(state.user?.role!=='admin')all=all.filter(m=>m.userId===state.user?.id);
   if(filterUser)all=all.filter(m=>m.userId===filterUser);
@@ -1446,31 +1519,7 @@ function exportDashCSV(){
   notify('📥 Export CSV téléchargé');
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// EXPORT USERS (pour GitHub Secret REPAAC_USERS)
-// ═══════════════════════════════════════════════════════════════════════
-function exportUsers(){
-  const users=getUsers();
-  // Retire les mots de passe en clair si besoin (ils sont déjà hashés)
-  const exportData=JSON.stringify(users);
-  const b64=btoa(unescape(encodeURIComponent(exportData)));
-  navigator.clipboard.writeText(b64).then(()=>{
-    document.getElementById('export-notice').style.display='block';
-    document.getElementById('export-notice').scrollIntoView({behavior:'smooth'});
-  }).catch(()=>{
-    // Fallback: show in modal
-    const modal=document.createElement('div');
-    modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    modal.innerHTML=`<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:90%;">
-      <h3 style="color:var(--prp);margin-bottom:12px;">📤 Code des comptes utilisateurs</h3>
-      <p style="font-size:12px;color:var(--txt2);margin-bottom:8px;">Copiez ce code et collez-le comme valeur du secret GitHub <code>REPAAC_USERS</code> :</p>
-      <textarea readonly style="width:100%;height:100px;font-family:monospace;font-size:10px;padding:8px;border:.5px solid var(--brd);border-radius:var(--rad);">${b64}</textarea>
-      <button onclick="this.closest('div').parentElement.remove()" style="margin-top:10px;background:var(--prp);color:#fff;border:none;padding:8px 16px;border-radius:var(--rad);cursor:pointer;">Fermer</button>
-    </div>`;
-    document.body.appendChild(modal);
-    modal.querySelector('textarea').select();
-  });
-}
+// Export users géré via Supabase
 
 // ═══════════════════════════════════════════════════════════════════════
 // BOOT
