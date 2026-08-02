@@ -611,12 +611,15 @@ setInterval(pingSupabase, 4 * 60 * 1000); // toutes les 4 minutes
 // ── Storage helpers (Supabase) ───────────────────────────────────────────
 async function getUsers(){
   try{
-    const res = await sbFetch('repaac_users?select=*');
+    const res = await sbFetch('rpc/list_repaac_users', {
+      method:'POST',
+      body: JSON.stringify({ p_admin_name: state.user.id, p_admin_pwd: state.user.pwdHash })
+    });
     const rows = await res.json();
     if(!Array.isArray(rows)) return {};
     const obj = {};
     rows.forEach(u => {
-      obj[u.name] = { name: u.name, email: u.email||'', password: u.pwd||'', role: u.rôle||'user', blocked: u.blocked||false, sbId: u.name };
+      obj[u.name] = { name: u.name, email: u.email||'', role: u.role||'user', blocked: u.blocked||false, sbId: u.name };
     });
     return obj;
   }catch(e){ return {}; }
@@ -627,23 +630,34 @@ async function saveUsers(users){
 }
 
 async function sbCreateUser(id, name, email, pwd, role){
-  const res = await sbFetch('repaac_users', {
+  const res = await sbFetch('rpc/create_repaac_user', {
     method:'POST',
-    body: JSON.stringify({ name: id, email, pwd: H(pwd), rôle: role })
+    body: JSON.stringify({ p_admin_name: state.user.id, p_admin_pwd: state.user.pwdHash, p_name: id, p_email: email, p_pwd: H(pwd), p_role: role })
   });
   return res;
 }
 
 async function sbUpdateUser(userName, fields){
-  const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(userName), {
-    method:'PATCH',
-    body: JSON.stringify(fields)
+  const res = await sbFetch('rpc/update_repaac_user', {
+    method:'POST',
+    body: JSON.stringify({
+      p_admin_name: state.user.id,
+      p_admin_pwd: state.user.pwdHash,
+      p_target_name: userName,
+      p_email: fields.email,
+      p_role: fields.rôle || fields.role,
+      p_blocked: fields.blocked===undefined ? false : fields.blocked,
+      p_new_pwd: fields.pwd || null
+    })
   });
   return res;
 }
 
 async function sbDeleteUser(userName){
-  const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(userName), { method:'DELETE' });
+  const res = await sbFetch('rpc/delete_repaac_user', {
+    method:'POST',
+    body: JSON.stringify({ p_admin_name: state.user.id, p_admin_pwd: state.user.pwdHash, p_target_name: userName })
+  });
   return res;
 }
 
@@ -697,7 +711,7 @@ async function doLogin(){
     const u=rows[0];
     if(u.blocked===true||u.blocked==='true'){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
 
-    state.user={id:usr,name:u.name,email:u.email,role:u.role||'user',sbId:u.id};
+    state.user={id:usr,name:u.name,email:u.email,role:u.role||'user',sbId:u.id,pwdHash:H(pass)};
     // Load user data
     try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
     try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
