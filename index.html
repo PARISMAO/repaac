@@ -691,13 +691,13 @@ async function doLogin(){
   const err=document.getElementById('login-err');
   err.style.display='none';
   try{
-    const res = await sbFetch('repaac_users?name=eq.'+encodeURIComponent(usr)+'&select=*');
+    const res = await sbFetch('rpc/login_repaac', {method:'POST', body: JSON.stringify({p_name: usr, p_pwd: H(pass)})});
     const rows = await res.json();
     if(!Array.isArray(rows)||rows.length===0){err.textContent='Identifiant introuvable';err.style.display='block';return;}
     const u=rows[0];
     if(u.blocked===true||u.blocked==='true'){err.textContent='Compte bloqué — contactez l\'administrateur';err.style.display='block';return;}
-    if(u.pwd!==H(pass)){err.textContent='Mot de passe incorrect';err.style.display='block';return;}
-    state.user={id:usr,name:u.name,email:u.email,role:u.rôle||'user',sbId:u.id};
+
+    state.user={id:usr,name:u.name,email:u.email,role:u.role||'user',sbId:u.id};
     // Load user data
     try{docs=JSON.parse(localStorage.getItem('repaac_docs_'+usr)||'{"com":"","tech":"","email":""}');}catch{docs={com:'',tech:'',email:''};}
     try{missions=JSON.parse(localStorage.getItem('repaac_ms_'+usr)||'[]');}catch{missions=[];}
