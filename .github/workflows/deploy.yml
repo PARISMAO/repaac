@@ -1,43 +1,33 @@
 name: Deploy REPAAC to GitHub Pages
-
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: "pages"
   cancel-in-progress: false
-
 jobs:
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Inject secrets (API Key + Users)
+      - name: Inject secrets (Users)
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPAAC_USERS: ${{ secrets.REPAAC_USERS }}
         run: |
           python3 -c "
           import os, base64
           with open('index.html', 'r', encoding='utf-8') as f:
               c = f.read()
-          k = os.environ.get('ANTHROPIC_API_KEY', '')
           u = os.environ.get('REPAAC_USERS', '')
-          if k and k.startswith('sk-'):
-              k64 = base64.b64encode(k.encode()).decode()
-              c = c.replace('__ANTHROPIC_API_KEY__', k64)
           if u and u != '__REPAAC_USERS__':
               u64 = base64.b64encode(u.encode()).decode()
               c = c.replace('__REPAAC_USERS__', u64)
@@ -46,12 +36,10 @@ jobs:
           "
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
