@@ -661,17 +661,8 @@ async function sbDeleteUser(userName){
   return res;
 }
 
-// ── Utilisateurs et API Key centralisés via GitHub Secrets ───────────────
-let _BAKED_KEY='';
-try{const _raw='__ANTHROPIC_API_KEY__';if(_raw&&!_raw.includes('ANTHROPIC_API_KEY'))_BAKED_KEY=atob(_raw);}catch(e){}
-function getApiKey(){
-  if(_BAKED_KEY && !_BAKED_KEY.includes('ANTHROPIC_API_KEY') && _BAKED_KEY.startsWith('sk-')){return _BAKED_KEY;}
-  return localStorage.getItem('repaac_apikey')||'';
-}
-function isKeyBaked(){return _BAKED_KEY && !_BAKED_KEY.includes('ANTHROPIC_API_KEY') && _BAKED_KEY.startsWith('sk-');}
-function fmtM(m,d){return m?Number(m).toLocaleString('fr-FR')+' '+(d||'GNF'):'Sur devis';}
-function td(){return new Date().toLocaleDateString('fr-FR');}
-
+function getApiKey(){return '';}
+function isKeyBaked(){return true;}
 // ── Screen routing ──────────────────────────────────────────────────────
 function setScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -966,8 +957,6 @@ function setTab(t){
 // AI GENERATION
 // ═══════════════════════════════════════════════════════════════════════
 async function genDoc(){
-  const apiKey=getApiKey();
-  if(!apiKey){notify('Clé API manquante — cliquez 🔑 pour la configurer','error');return;}
   const f=getForm();
   if(!f.titre){notify('Intitulé de la mission manquant','error');return;}
   const t=state.tab;
@@ -984,10 +973,10 @@ async function genDoc(){
       usr:`Email soumission pour:\n${ctx}\nDestinataire: ${f.nct||'Responsable'} (${f.ent||f.cab})\nPJ: Offre Commerciale + Offre Technique${atts.length?'+'+atts.map(a=>a.name).join(','):''}`}
   };
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://ywzjfxrxsqrgznnnnkzx.supabase.co/functions/v1/claude-relay',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,system:prompts[t].sys,messages:[{role:'user',content:prompts[t].usr}]})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({max_tokens:2000,system:prompts[t].sys,messages:[{role:'user',content:prompts[t].usr}]})
     });
     const data=await res.json();
     if(data.error){
